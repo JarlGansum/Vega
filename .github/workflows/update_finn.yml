@@ -24,9 +24,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install openpyxl
-
       - name: Run parser
         run: python scripts/scrape_finn.py
 
@@ -34,6 +31,12 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          git add data/finn_vega.csv data/finn_vega.xlsx
+
+          git add data/finn_vega.csv
+
+          if [ -f data/finn_vega.xlsx ]; then
+            git add data/finn_vega.xlsx
+          fi
+
           git commit -m "Update parsed FINN Vega data" || echo "No changes to commit"
           git push
