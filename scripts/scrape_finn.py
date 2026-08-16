@@ -13,6 +13,7 @@ RAW_FILE = Path("data/finn_raw.txt")
 CSV_FILE = Path("data/finn_vega.csv")
 XLSX_FILE = Path("data/finn_vega.xlsx")
 
+
 FIELDNAMES = [
     "FinnId",
     "Tittel",
@@ -460,6 +461,7 @@ def write_xlsx(rows):
 
     if ws.max_row >= 2:
         table_ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+
         table = Table(
             displayName="tblFinnVega",
             ref=table_ref
