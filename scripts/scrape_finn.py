@@ -95,12 +95,28 @@ NOISE_STARTS = [
     "Admin for bedrifter",
     "Om FINN",
     "Karriere",
+    "FINNspirasjon",
+    "Om Vend",
     "Personvern",
+    "Personvernerklæring",
+    "Cookieinnstillinger",
+    "Personverninnstillinger",
     "Få hjelp",
     "Kundeservice",
+    "Trygg handel",
+    "Fiks ferdig",
     "Brukervilkår",
     "Annonseregler",
-    "Sider"
+    "Tilgjengelighetserklæring",
+    "Sosiale medier",
+    "Innholdet er beskyttet",
+    "©",
+    "Bli også kjent med",
+    "Helthjem",
+    "Lendo",
+    "Morgenlevering",
+    "Nettbil",
+    "Mobil med garanti"
 ]
 
 
@@ -163,7 +179,11 @@ def looks_like_price_only(line):
 
 
 def extract_total_price(block):
-    match = re.search(r"Totalpris:\s*([\d\s]+)", block, flags=re.IGNORECASE)
+    match = re.search(
+        r"Totalpris:\s*([\d\s]+)",
+        block,
+        flags=re.IGNORECASE
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -172,7 +192,11 @@ def extract_total_price(block):
 
 
 def extract_area(block):
-    match = re.search(r"(\d{2,4})\s*m[²2]", block, flags=re.IGNORECASE)
+    match = re.search(
+        r"(\d{2,4})\s*m[²2]",
+        block,
+        flags=re.IGNORECASE
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -181,7 +205,11 @@ def extract_area(block):
 
 
 def extract_plot_area(block):
-    match = re.search(r"Tomt på\s*([\d\s]+)\s*m[²2]", block, flags=re.IGNORECASE)
+    match = re.search(
+        r"Tomt på\s*([\d\s]+)\s*m[²2]",
+        block,
+        flags=re.IGNORECASE
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -190,7 +218,11 @@ def extract_plot_area(block):
 
 
 def extract_bedrooms(block):
-    match = re.search(r"(\d+)\s*soverom", block, flags=re.IGNORECASE)
+    match = re.search(
+        r"(\d+)\s*soverom",
+        block,
+        flags=re.IGNORECASE
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -199,10 +231,20 @@ def extract_bedrooms(block):
 
 
 def extract_eierform(block):
-    known = ["Selveier", "Andel", "Aksje", "Obligasjon", "Annet"]
+    known = [
+        "Selveier",
+        "Andel",
+        "Aksje",
+        "Obligasjon",
+        "Annet"
+    ]
 
     for item in known:
-        if re.search(rf"\b{re.escape(item)}\b", block, flags=re.IGNORECASE):
+        if re.search(
+            rf"\b{re.escape(item)}\b",
+            block,
+            flags=re.IGNORECASE
+        ):
             return item
 
     return None
@@ -224,7 +266,11 @@ def extract_boligtype(block):
     ]
 
     for item in known:
-        if re.search(re.escape(item), block, flags=re.IGNORECASE):
+        if re.search(
+            re.escape(item),
+            block,
+            flags=re.IGNORECASE
+        ):
             if item == "Gardsbruk/Smabruk":
                 return "Gårdsbruk/Småbruk"
 
@@ -234,7 +280,11 @@ def extract_boligtype(block):
 
 
 def extract_price(block):
-    total_match = re.search(r"Totalpris:", block, flags=re.IGNORECASE)
+    total_match = re.search(
+        r"Totalpris:",
+        block,
+        flags=re.IGNORECASE
+    )
 
     if total_match:
         before_totalpris = block[:total_match.start()]
@@ -310,8 +360,8 @@ def parse_rows(raw_text):
         address = lines[address_index]
         title = find_title(lines, address_index)
 
-        start = max(0, address_index - 6)
-        end = min(len(lines), address_index + 10)
+        start = max(0, address_index - 8)
+        end = min(len(lines), address_index + 12)
         block = "\n".join(lines[start:end])
 
         row = {
@@ -360,9 +410,9 @@ def write_xlsx(rows):
     header_fill = PatternFill("solid", fgColor="1F4E78")
     header_font = Font(color="FFFFFF", bold=True)
 
-    for cell in ws[1]:
-    cell.font = header_font
-    cell.alignment = Alignment(horizontal="center", vertical="center")
+    for cell in wscell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
 
     widths = {
         "A": 16,
