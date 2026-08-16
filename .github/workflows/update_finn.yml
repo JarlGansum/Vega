@@ -1,0 +1,33 @@
+name: Update FINN Vega data
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-finn:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run scraper
+        run: python scripts/scrape_finn.py
+
+      - name: Commit updated data
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add data/finn_vega.csv
+          git commit -m "Update FINN Vega data" || echo "No changes to commit"
+          git push
