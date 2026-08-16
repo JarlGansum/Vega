@@ -7,9 +7,9 @@ lokal tekstfil (data/finn_raw.txt) som du selv har limt inn tekst i
 den til CSV og Excel for videre analyse i f.eks. Power BI.
 
 Strategien er a dele radataen i "annonseblokker" avgrenset av
-"Legg til som favoritt." (som FINN alltid skriver etter hver annonse),
+"Legg til som favoritt." (som FINN skriver etter hver annonse),
 i stedet for a gjette linje-for-linje bakover fra adressen. Det gjor
-parseren mye mer robust mot at enkelte annonser mangler felter
+parseren mer robust mot at enkelte annonser mangler felter
 (f.eks. ingen egen tittel, ingen soverom, ingen tomteareal).
 """
 
@@ -76,7 +76,8 @@ LINE_NOISE_PREFIXES = (
 )
 
 # "Statusmerker" pa annonsebildet, f.eks. "4 solgt - kun 2 igjen!".
-# Disse skal IKKE tolkes som tittel.
+# Disse skal som hovedregel IKKE tolkes som tittel, men brukes som fallback
+# hvis annonsen mangler tydelig tittel.
 BADGE_PATTERNS = [
     re.compile(r"\d+\s*solgt", re.IGNORECASE),
     re.compile(r"kun\s*\d+\s*igjen", re.IGNORECASE),
@@ -117,6 +118,14 @@ def is_badge(line):
     return any(pattern.search(line) for pattern in BADGE_PATTERNS)
 
 
+def find_badge(block_lines):
+    for line in block_lines:
+        if is_badge(line):
+            return line
+
+    return None
+
+
 def is_broker_name(line):
     line_lower = line.lower()
 
@@ -138,11 +147,15 @@ def looks_like_price_only(line):
 
 
 # ---------------------------------------------------------------------
-# Feltuttrekk fra en hel annonseblokk (flere linjer slatt sammen)
+# Feltuttrekk fra en hel annonseblokk
 # ---------------------------------------------------------------------
 
 def extract_total_price(block_text):
-    match = re.search(r"Totalpris:\s*([\d\s]+)", block_text, flags=re.IGNORECASE)
+    match = re.search(
+        r"Totalpris:\s*([\d\s]+)",
+        block_text,
+        flags=re.IGNORECASE,
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -151,7 +164,30 @@ def extract_total_price(block_text):
 
 
 def extract_area(block_text):
-    match = re.search(r"(\d{2,4})\s*m[²2]", block_text, flags=re.IGNORECASE)
+    # Foretrekk boareal som star rett foran prisen, f.eks. "108 m²2 350 000 kr".
+    # Dette er et tryggere signal, siden tomteareal normalt ikke star rett foran "kr".
+    match = re.search(
+        r"(\d{2,4})\s*m[²2]\s*[\d\s]{4,}\s*kr",
+        block_text,
+        flags=re.IGNORECASE,
+    )
+
+    if match:
+        return parse_int(match.group(1))
+
+    # Fjern "Tomt pa X m²"-uttrykk for det er tomteareal, ikke boareal.
+    without_plot = re.sub(
+        r"Tomt(?:a| på| p[aå])?\s*[\d\s]+\s*m[²2]",
+        "",
+        block_text,
+        flags=re.IGNORECASE,
+    )
+
+    match = re.search(
+        r"(\d{2,4})\s*m[²2]",
+        without_plot,
+        flags=re.IGNORECASE,
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -160,7 +196,11 @@ def extract_area(block_text):
 
 
 def extract_plot_area(block_text):
-    match = re.search(r"Tomt(?:a| på| p[aå])?\s*([\d\s]+)\s*m[²2]", block_text, flags=re.IGNORECASE)
+    match = re.search(
+        r"Tomt(?:a| på| p[aå])?\s*([\d\s]+)\s*m[²2]",
+        block_text,
+        flags=re.IGNORECASE,
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -169,7 +209,11 @@ def extract_plot_area(block_text):
 
 
 def extract_bedrooms(block_text):
-    match = re.search(r"(\d+)\s*soverom", block_text, flags=re.IGNORECASE)
+    match = re.search(
+        r"(\d+)\s*soverom",
+        block_text,
+        flags=re.IGNORECASE,
+    )
 
     if match:
         return parse_int(match.group(1))
@@ -178,10 +222,20 @@ def extract_bedrooms(block_text):
 
 
 def extract_eierform(block_text):
-    known_values = ["Selveier", "Andel", "Aksje", "Obligasjon", "Annet"]
+    known_values = [
+        "Selveier",
+        "Andel",
+        "Aksje",
+        "Obligasjon",
+        "Annet",
+    ]
 
     for value in known_values:
-        if re.search(rf"\b{re.escape(value)}\b", block_text, flags=re.IGNORECASE):
+        if re.search(
+            rf"\b{re.escape(value)}\b",
+            block_text,
+            flags=re.IGNORECASE,
+        ):
             return value
 
     return None
@@ -203,7 +257,11 @@ def extract_boligtype(block_text):
     ]
 
     for value in known_values:
-        if re.search(re.escape(value), block_text, flags=re.IGNORECASE):
+        if re.search(
+            re.escape(value),
+            block_text,
+            flags=re.IGNORECASE,
+        ):
             if value == "Gardsbruk/Smabruk":
                 return "Gårdsbruk/Småbruk"
 
@@ -213,25 +271,37 @@ def extract_boligtype(block_text):
 
 
 def extract_price(block_text):
-    total_match = re.search(r"Totalpris:", block_text, flags=re.IGNORECASE)
+    total_match = re.search(
+        r"Totalpris:",
+        block_text,
+        flags=re.IGNORECASE,
+    )
+
     before_totalpris = block_text[: total_match.start()] if total_match else block_text
 
     # Dekker tilfeller uten mellomrom mellom "m²" og prisen, f.eks. "122 m²2 850 000 kr"
     area_price_match = re.search(
-        r"\d{2,4}\s*m[²2]\s*([\d\s]{5,})\s*kr", before_totalpris, flags=re.IGNORECASE
+        r"\d{2,4}\s*m[²2]\s*([\d\s]{5,})\s*kr",
+        before_totalpris,
+        flags=re.IGNORECASE,
     )
 
     if area_price_match:
         return parse_int(area_price_match.group(1))
 
     price_candidates_with_kr = re.findall(
-        r"(\d[\d\s]{4,})\s*kr", before_totalpris, flags=re.IGNORECASE
+        r"(\d[\d\s]{4,})\s*kr",
+        before_totalpris,
+        flags=re.IGNORECASE,
     )
 
     if price_candidates_with_kr:
         return parse_int(price_candidates_with_kr[-1])
 
-    standalone_candidates = re.findall(r"(?m)^\s*(\d[\d\s]{5,})\s*$", before_totalpris)
+    standalone_candidates = re.findall(
+        r"(?m)^\s*(\d[\d\s]{5,})\s*$",
+        before_totalpris,
+    )
 
     if standalone_candidates:
         return parse_int(standalone_candidates[-1])
@@ -244,12 +314,13 @@ def extract_price(block_text):
 # ---------------------------------------------------------------------
 
 def split_into_blocks(raw_text):
-    """Deler radataen i en liste av annonseblokker (hver blokk = liste av linjer)."""
+    """Deler radataen i en liste av annonseblokker."""
 
     lines = [clean_text(line) for line in raw_text.splitlines()]
     lines = [line for line in lines if line != ""]
 
     start_idx = None
+
     for index, line in enumerate(lines):
         if LISTING_START_RE.match(line):
             start_idx = index
@@ -270,13 +341,15 @@ def split_into_blocks(raw_text):
             blocks.append(current)
             current = []
 
-    # Ufullstendig siste blokk (f.eks. hvis kopieringen ble avbrutt) ignoreres bevisst,
-    # siden vi da mangler garantien om at annonsen faktisk er ferdig.
+    # Ufullstendig siste blokk ignoreres bevisst.
     return blocks
 
 
 def find_address(lines):
-    address_re = re.compile(rf",\s*{re.escape(LOCATION)}\b", re.IGNORECASE)
+    address_re = re.compile(
+        rf",\s*{re.escape(LOCATION)}\b",
+        re.IGNORECASE,
+    )
 
     for index, line in enumerate(lines):
         if address_re.search(line):
@@ -302,6 +375,7 @@ def find_broker(block_lines):
 
 def parse_block(block_lines, row_number):
     broker = find_broker(block_lines)
+    badge = find_badge(block_lines)
 
     content_lines = [
         line
@@ -314,6 +388,7 @@ def parse_block(block_lines, row_number):
     address, address_pos = find_address(content_lines)
 
     title = None
+
     if address_pos is not None:
         for line in content_lines[:address_pos]:
             if looks_like_price_only(line):
@@ -324,6 +399,21 @@ def parse_block(block_lines, row_number):
 
             title = line
             break
+
+    # Fallback: Hvis tittel mangler, bruk statusmerke/badge som tittel.
+    # Eksempel: "4 solgt - kun 2 igjen!"
+    used_badge_as_title = False
+
+    if title is None and badge is not None:
+        title = badge
+        used_badge_as_title = True
+
+    if used_badge_as_title:
+        comment = "Tittel hentet fra statusmerke - kontroller manuelt"
+    elif not address:
+        comment = "Mangler adresse - sjekk manuelt"
+    else:
+        comment = ""
 
     block_text = "\n".join(block_lines)
 
@@ -343,7 +433,7 @@ def parse_block(block_lines, row_number):
         "Kilde": "FINN manuelt kopiert tekst",
         "SistOppdatert": date.today().isoformat(),
         "Url": "",
-        "Kommentar": "" if address else "Mangler adresse - sjekk manuelt",
+        "Kommentar": comment,
     }
 
 
@@ -351,6 +441,7 @@ def parse_rows(raw_text):
     blocks = split_into_blocks(raw_text)
 
     rows = []
+
     for row_number, block_lines in enumerate(blocks, start=1):
         rows.append(parse_block(block_lines, row_number))
 
@@ -427,6 +518,7 @@ def write_xlsx(rows):
         table_ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
 
         table = Table(displayName="tblFinnVega", ref=table_ref)
+
         style = TableStyleInfo(
             name="TableStyleMedium2",
             showFirstColumn=False,
