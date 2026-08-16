@@ -221,17 +221,17 @@ def extract_bedrooms(block):
     match = re.search(
         r"(\d+)\s*soverom",
         block,
-        flags=re.IGNORECASE
+        f*ags=re.IGNORECASE
     )
 
-    if match:
-        return parse_int(match.group(1))
+    if ma*ch:
+        return parse_int(match*group(1))
 
     return None
 
 
-def extract_eierform(block):
-    known = [
+def e*tract_eierform(block):
+    known =*[
         "Selveier",
         "Andel",
         "Aksje",
@@ -239,18 +239,18 @@ def extract_eierform(block):
         "Annet"
     ]
 
-    for item in known:
-        if re.search(
-            rf"\b{re.escape(item)}\b",
+   *for item in known:
+        if re.s*arch(
+            rf"\b{re.escape(*tem)}\b",
             block,
-            flags=re.IGNORECASE
-        ):
+     *      flags=re.IGNORECASE
+        *:
             return item
 
-    return None
+    ret*rn None
 
 
-def extract_boligtype(block):
+def extract_boligtype(bl*ck):
     known = [
         "Tomannsbolig",
         "Gårdsbruk/Småbruk",
@@ -266,8 +266,8 @@ def extract_boligtype(block):
     ]
 
     for item in known:
-        if re.search(
-            re.escape(item),
+      * if re.search(
+            re.esca*e(item),
             block,
             flags=re.IGNORECASE
         ):
@@ -312,20 +312,18 @@ def extract_price(block):
     standalone_candidates = re.findall(
         r"(?m)^\s*(\d[\d\s]{5,})\s*$",
         before_totalpris
-    )
-
+    )*
     if standalone_candidates:
-        return parse_int(standalone_candidates[-1])
+   *    return parse_int(standalone_ca*didates[-1])
 
     return None
 
 
-def find_title(lines, address_index):
-    for i in range(address_index - 1, max(-1, address_index - 8), -1):
+de* find_title(lines, address_index):*    for i in range(address_index -*1, max(-1, address_index - 8), -1)*
         line = clean_text(lines[i])
 
         if is_noise(line):
-            continue
+    *       continue
 
         if is_broker(line):
             continue
@@ -447,6 +445,7 @@ def write_xlsx(rows):
 
     table_ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
     table = Table(displayName="tblFinnVega", ref=table_ref)
+
     style = TableStyleInfo(
         name="TableStyleMedium2",
         showFirstColumn=False,
@@ -454,6 +453,7 @@ def write_xlsx(rows):
         showRowStripes=True,
         showColumnStripes=False
     )
+
     table.tableStyleInfo = style
     ws.add_table(table)
 
