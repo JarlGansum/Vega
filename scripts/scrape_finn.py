@@ -361,8 +361,8 @@ def write_xlsx(rows):
     header_font = Font(color="FFFFFF", bold=True)
 
     for cell in wscell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
+    cell.font = header_font
+    cell.alignment = Alignment(horizontal="center", vertical="center")
 
     widths = {
         "A": 16,
