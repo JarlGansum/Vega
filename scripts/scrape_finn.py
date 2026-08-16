@@ -43,6 +43,7 @@ BROKER_KEYWORDS = [
     "RE/MAX"
 ]
 
+
 NOISE_STARTS = [
     "Bilde ",
     "Megler logo",
@@ -198,13 +199,7 @@ def extract_bedrooms(block):
 
 
 def extract_eierform(block):
-    known = [
-        "Selveier",
-        "Andel",
-        "Aksje",
-        "Obligasjon",
-        "Annet"
-    ]
+    known = ["Selveier", "Andel", "Aksje", "Obligasjon", "Annet"]
 
     for item in known:
         if re.search(rf"\b{re.escape(item)}\b", block, flags=re.IGNORECASE):
@@ -246,37 +241,33 @@ def extract_price(block):
     else:
         before_totalpris = block
 
-    # Prioriter pris med kr etter adresse-/areallinje
-    price_candidates = re.findall(r"(\d[\d\s]{4,})\s*kr", before_totalpris)
+    area_price_match = re.search(
+        r"\d{2,4}\s*m[²2]\s*([\d\s]{5,})\s*kr",
+        before_totalpris,
+        flags=re.IGNORECASE
+    )
 
-    if price_candidates:
-        return parse_int(price_candidates[-1])
+    if area_price_match:
+        return parse_int(area_price_match.group(1))
 
-    # Fallback: prislinje uten kr
-    number_candidates = re.findall(r"(?m)^\s*(\d[\d\s]{4,})\s*$", before_totalpris)
+    price_candidates_with_kr = re.findall(
+        r"(\d[\d\s]{4,})\s*kr",
+        before_totalpris,
+        flags=re.IGNORECASE
+    )
 
-    if number_candidates:
-        return parse_int(number_candidates[-1])
+    if price_candidates_with_kr:
+        return parse_int(price_candidates_with_kr[-1])
+
+    standalone_candidates = re.findall(
+        r"(?m)^\s*(\d[\d\s]{5,})\s*$",
+        before_totalpris
+    )
+
+    if standalone_candidates:
+        return parse_int(standalone_candidates[-1])
 
     return None
-
-
-def build_blocks(lines, address_indexes):
-    blocks = []
-
-    for position, address_index in enumerate(address_indexes):
-        previous_address_index = address_indexes[position - 1] if position > 0 else 0
-        next_address_index = address_indexes[position + 1] if position + 1 < len(address_indexes) else len(lines)
-
-        start = max(previous_address_index, address_index - 6)
-        end = min(next_address_index, address_index + 8)
-
-        block_lines = lines[start:end]
-        block_text = "\n".join(block_lines)
-
-        blocks.append((address_index, block_text))
-
-    return blocks
 
 
 def find_title(lines, address_index):
@@ -313,13 +304,15 @@ def parse_rows(raw_text):
         if re.search(r",\s*Vega\b", line, flags=re.IGNORECASE):
             address_indexes.append(index)
 
-    blocks = build_blocks(lines, address_indexes)
-
     rows = []
 
-    for row_number, (address_index, block) in enumerate(blocks, start=1):
+    for row_number, address_index in enumerate(address_indexes, start=1):
         address = lines[address_index]
         title = find_title(lines, address_index)
+
+        start = max(0, address_index - 6)
+        end = min(len(lines), address_index + 10)
+        block = "\n".join(lines[start:end])
 
         row = {
             "FinnId": f"ANNONSE_{row_number:03d}",
@@ -402,18 +395,17 @@ def write_xlsx(rows):
         ws[f"I{row_num}"].number_format = "0"
         ws[f"J{row_num}"].number_format = "#,##0"
 
-    if ws.max_row >= 1:
-        table_ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
-        table = Table(displayName="tblFinnVega", ref=table_ref)
-        style = TableStyleInfo(
-            name="TableStyleMedium2",
-            showFirstColumn=False,
-            showLastColumn=False,
-            showRowStripes=True,
-            showColumnStripes=False
-        )
-        table.tableStyleInfo = style
-        ws.add_table(table)
+    table_ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+    table = Table(displayName="tblFinnVega", ref=table_ref)
+    style = TableStyleInfo(
+        name="TableStyleMedium2",
+        showFirstColumn=False,
+        showLastColumn=False,
+        showRowStripes=True,
+        showColumnStripes=False
+    )
+    table.tableStyleInfo = style
+    ws.add_table(table)
 
     ws.freeze_panes = "A2"
 
