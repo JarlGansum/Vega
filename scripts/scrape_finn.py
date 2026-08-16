@@ -360,7 +360,7 @@ def write_xlsx(rows):
     header_fill = PatternFill("solid", fgColor="1F4E78")
     header_font = Font(color="FFFFFF", bold=True)
 
-    for cell in wscell.fill = header_fill
+    for cell in ws[1]:
     cell.font = header_font
     cell.alignment = Alignment(horizontal="center", vertical="center")
 
